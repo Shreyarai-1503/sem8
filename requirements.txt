@@ -1,0 +1,12 @@
+# Dependencies for DL assignment notebooks
+numpy
+pandas
+matplotlib
+scikit-learn
+keras
+tensorflow
+jupyter
+notebook
+ipykernel
+opencv-python
+tqdm
