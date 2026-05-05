@@ -1,174 +1,161 @@
-#include<iostream>
-#include<omp.h>
-#include<bits/stdc++.h>
+// Design and implement Parallel Breadth First Search and Depth First Search based on existing algorithms using OpenMP. Use a Tree or an undirected graph for BFS and DFS . 
 
+#include <iostream>
+#include <omp.h>
+#include <bits/stdc++.h>
 using namespace std;
 
+class Graph {
+public:
+    int vertices = 6;
+    // Adjacency list: 0-1-2-3-4-5 connected as a small undirected graph
+    vector<vector<int>> graph = {{1}, {0,2,3}, {1,4,5}, {1,4}, {2,3}, {2,3,4}};
+    vector<bool> visited;
 
-class Graph{
-    public:
-        // vector<vector<int>> graph;
-        // vector<bool> visited;
-        // int vertices = 0;
-        // int edges = 0;
-
-        int vertices = 6;
-        int edges = 5;
-        vector<vector<int>> graph = {{1},{0,2,3},{1,4,5},{1,4},{2,3},{2}};
-        vector<bool> visited;
-
-        // Graph(){
-        //     cout << "Enter number of nodes: ";
-        //     cin >> vertices;
-        //     cout << "Enter number of edges: ";
-        //     cin >> edges;
-        //     graph.assign(vertices,vector<int>());
-        //     for(int i = 0 ; i < edges;i++){
-        //         int a,b;
-        //         cout << "Enter adjacent nodes: ";
-        //         cin >> a >> b;
-        //         addEdge(a,b);
-        //     }
-        // }
-        void addEdge(int a, int b){
-            graph[a].push_back(b);
-            graph[b].push_back(a);
+    void printGraph() {
+        for (int i = 0; i < vertices; i++) {
+            cout << i << " -> ";
+            for (int j : graph[i]) 
+                cout << j << " ";
+            cout << endl;
         }
+    }
 
-        void printGraph(){
-            for(int i = 0; i < vertices; i++){
-                cout << i << " -> ";
-                for(auto j = graph[i].begin(); j != graph[i].end();j++){
-                    cout << *j << " ";
+    void initialize_visited() {
+        visited.assign(vertices, false);
+    }
+
+    // ── Sequential DFS ──────────────────────────────────────
+    void dfs(int start) {
+        stack<int> s;
+        s.push(start);
+        visited[start] = true;
+
+        while (!s.empty()) {
+            int current = s.top();
+            s.pop();
+            cout << current << " ";
+
+            for (int neighbor : graph[current]) {
+                if (!visited[neighbor]) {
+                    visited[neighbor] = true;
+                    s.push(neighbor);
                 }
-                cout << endl;
             }
         }
+    }
 
-        void initialize_visited(){
-            visited.assign(vertices,false);
-        }
+    // ── Parallel DFS (OpenMP) ────────────────────────────────
+    // Uses #pragma omp parallel for to explore neighbors
+    // and #pragma omp critical to protect shared stack & visited[]
+    void parallel_dfs(int start) {
+        stack<int> s;
+        s.push(start);
+        visited[start] = true;
 
-        void dfs(int i){
-            stack<int> s;
-            s.push(i);
-            visited[i] = true;
-
-            while(s.empty() != true){
-                int current = s.top();
-                cout << current << " ";
+        while (!s.empty()) {
+            int current;
+            #pragma omp critical {
+                current = s.top();
                 s.pop();
-                for(auto j = graph[current].begin(); j != graph[current].end();j++){
-                    if(visited[*j] == false){
-                        s.push(*j);
-                        visited[*j] = true;
+            }
+            cout << current << " ";
+
+            #pragma omp parallel for
+            for (int i = 0; i < (int)graph[current].size(); i++) {
+                int neighbor = graph[current][i];
+                #pragma omp critical {
+                    if (!visited[neighbor]) {
+                        visited[neighbor] = true;
+                        s.push(neighbor);
                     }
                 }
-                
             }
         }
+    }
 
-        void parallel_dfs(int i){
-            stack<int> s;
-            s.push(i);
-            visited[i] = true;
+    // ── Sequential BFS ──────────────────────────────────────
+    void bfs(int start) {
+        queue<int> q;
+        q.push(start);
+        visited[start] = true;
 
-            while(s.empty() != true){
-                int current = s.top();
-                cout << current << " ";
-                #pragma omp critical
-                    s.pop();
-                #pragma omp parallel for
-                    for(auto j = graph[current].begin(); j != graph[current].end();j++){
-                        if(visited[*j] == false){
-                            #pragma omp critical
-                            {
-                                s.push(*j);
-                                visited[*j] = true;
-                            }
-                        }
-                    }
-                
+        while (!q.empty()) {
+            int current = q.front();
+            q.pop();
+            cout << current << " ";
+
+            for (int neighbor : graph[current]) {
+                if (!visited[neighbor]) {
+                    visited[neighbor] = true;
+                    q.push(neighbor);
+                }
             }
         }
+    }
 
-        void bfs(int i){
-            queue<int> q;
-            q.push(i);
-            visited[i] = true;
+    // ── Parallel BFS (OpenMP) ────────────────────────────────
+    // Uses #pragma omp parallel for to explore neighbors in parallel
+    // and #pragma omp critical to protect the shared queue & visited[]
+    void parallel_bfs(int start) {
+        queue<int> q;
+        q.push(start);
+        visited[start] = true;
 
-            while(q.empty() != true){
-                int current = q.front();
+        while (!q.empty()) {
+            int current;
+            #pragma omp critical {
+                current = q.front();
                 q.pop();
-                cout << current << " ";
-                for(auto j = graph[current].begin(); j != graph[current].end();j++){
-                    if(visited[*j] == false){
-                        q.push(*j);
-                        visited[*j] = true;
+            }
+            cout << current << " ";
+
+            #pragma omp parallel for
+            for (int i = 0; i < (int)graph[current].size(); i++) {
+                int neighbor = graph[current][i];
+                #pragma omp critical {
+                    if (!visited[neighbor]) {
+                        visited[neighbor] = true;
+                        q.push(neighbor);
                     }
                 }
             }
         }
-
-        void parallel_bfs(int i){
-            queue<int> q;
-            q.push(i);
-            visited[i] = true;
-
-            while(q.empty() != true){
-                
-                    int current = q.front();
-                    cout << current << " ";
-                    #pragma omp critical
-                        q.pop();
-                    
-                #pragma omp parallel for
-                    for(auto j = graph[current].begin(); j != graph[current].end();j++){
-                        if(visited[*j] == false){
-                            #pragma omp critical
-                                q.push(*j);
-                                visited[*j] = true;
-                        }
-                    }
-                
-            }
-        }
+    }
 };
 
-int main(int argc, char const *argv[])
-{
+int main() {
     Graph g;
     cout << "Adjacency List:\n";
     g.printGraph();
+
+    cout << "\nSequential DFS: ";
     g.initialize_visited();
-    cout << "Depth First Search: \n";
     auto start = chrono::high_resolution_clock::now();
     g.dfs(0);
-    cout << endl;
     auto end = chrono::high_resolution_clock::now();
-    cout << "Time taken: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
-    cout << "Parallel Depth First Search: \n";
+    cout << "\nTime: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " us\n";
+
+    cout << "\nParallel DFS: ";
     g.initialize_visited();
     start = chrono::high_resolution_clock::now();
     g.parallel_dfs(0);
-    cout << endl;
     end = chrono::high_resolution_clock::now();
-    cout << "Time taken: "<< chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
-    start = chrono::high_resolution_clock::now();
-    cout << "Breadth First Search: \n";
+    cout << "\nTime: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " us\n";
+
+    cout << "\nSequential BFS: ";
     g.initialize_visited();
+    start = chrono::high_resolution_clock::now();
     g.bfs(0);
-    cout << endl;
     end = chrono::high_resolution_clock::now();
-    cout << "Time taken: "<< chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
-    start = chrono::high_resolution_clock::now();
-    cout << "Parallel Breadth First Search: \n";
+    cout << "\nTime: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " us\n";
+
+    cout << "\nParallel BFS: ";
     g.initialize_visited();
+    start = chrono::high_resolution_clock::now();
     g.parallel_bfs(0);
-    cout << endl;
     end = chrono::high_resolution_clock::now();
-    cout << "Time taken: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " microseconds" << endl;
+    cout << "\nTime: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << " us\n";
 
     return 0;
 }
-
